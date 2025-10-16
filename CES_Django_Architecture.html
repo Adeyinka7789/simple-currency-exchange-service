@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CES Architecture Diagram (Django/Celery)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #F0F4F8; }
+        /* Colors for Django/Celery theme */
+        .color-primary { color: #004455; } /* Dark Teal */
+        .bg-django { background-color: #E6F0FF; } /* Light Blue - Django Core */
+        .bg-celery { background-color: #F0FFF4; } /* Light Green - Celery */
+        .bg-cache { background-color: #FFFBE6; } /* Light Yellow - Redis Cache */
+        .arrow-color { color: #3CB371; } /* Medium Green */
+        .schedule-color { color: #FF9800; } /* Orange - Scheduled Task */
+        .component-box { padding: 12px; border-radius: 8px; font-weight: 600; font-size: 14px; text-align: center; margin: 10px 0; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .flow-line { display: flex; flex-direction: column; align-items: center; margin: 5px 0; }
+        .arrow { font-size: 1.5rem; line-height: 1; }
+        .db-box { border: 2px dashed #004455; padding: 10px; }
+    </style>
+</head>
+<body class="p-4 md:p-10">
+    <div class="max-w-5xl mx-auto bg-white p-6 md:p-10 rounded-xl shadow-2xl border border-gray-100">
+
+        <h2 class="text-3xl font-black text-center color-primary mb-6">Simple Currency Exchange Service (CES) - Django/Celery Architecture</h2>
+        <p class="text-center text-gray-600 mb-8">Visualization of the two independent data paths: Scheduled Rate Ingestion (Write Path) and Conversion API (Read Path).</p>
+
+        <div class="flex flex-col lg:flex-row justify-between space-y-8 lg:space-y-0 lg:space-x-8">
+
+            <!-- COLUMN 1: RATE INGESTION (CELERY WRITE PATH) -->
+            <div class="lg:w-1/2 p-4 border border-green-400 rounded-xl shadow-lg bg-gray-50">
+                <h3 class="text-xl font-bold text-green-700 text-center mb-4">1. Scheduled Rate Ingestion (Asynchronous Write Path)</h3>
+
+                <div class="flex flex-col items-center">
+
+                    <div class="component-box bg-celery text-green-800 text-lg">
+                        <span class="font-black text-2xl schedule-color">⏰</span> <br/> **Celery Beat** (Scheduler)
+                    </div>
+
+                    <div class="flow-line"><span class="arrow arrow-color">⬇️</span><span class="text-xs text-gray-600">Triggers Hourly Task</span></div>
+
+                    <div class="component-box bg-celery text-green-800">
+                        **Celery Worker** (Executes `fetch_rates_task`)
+                    </div>
+
+                    <div class="flow-line"><span class="arrow arrow-color">⬇️</span><span class="text-xs text-gray-600">API Call via `requests`</span></div>
+
+                    <div class="component-box bg-white text-gray-800 border border-gray-300 w-full">
+                        External FX Provider
+                    </div>
+
+                    <div class="flow-line"><span class="arrow arrow-color">⬇️</span><span class="text-xs text-gray-600">Data Transformation & Validation</span></div>
+
+                    <div class="flex justify-between w-full mt-3">
+                        <div class="w-1/2 flex flex-col items-center pr-1">
+                            <div class="flow-line"><span class="arrow arrow-color">⬇️</span></div>
+                            <div class="component-box bg-cache text-yellow-800 font-bold">
+                                **Redis Cache** (Django Caching API)
+                            </div>
+                        </div>
+                        <div class="w-1/2 flex flex-col items-center pl-1">
+                            <div class="flow-line"><span class="arrow arrow-color">⬇️</span></div>
+                            <div class="component-box bg-django text-blue-800 font-bold db-box">
+                                **PostgreSQL** (New Immutable `ExchangeRate` Record)
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-xs mt-3 text-center text-gray-500 italic">Celery ensures retries if the external API fails, prioritizing data integrity.</p>
+                </div>
+            </div>
+
+            <!-- COLUMN 2: CONVERSION API (DJANGO READ/AUDIT PATH) -->
+            <div class="lg:w-1/2 p-4 border border-blue-400 rounded-xl shadow-lg bg-gray-50">
+                <h3 class="text-xl font-bold text-blue-700 text-center mb-4">2. Conversion API (Synchronous Read Path)</h3>
+
+                <div class="flex flex-col items-center">
+
+                    <div class="component-box bg-django text-blue-800 text-lg">
+                        Client Application (e.g., Billing Service)
+                    </div>
+
+                    <div class="flow-line"><span class="arrow arrow-color">⬇️</span><span class="text-xs text-gray-600">HTTPS POST /api/convert</span></div>
+
+                    <div class="component-box bg-django text-blue-800 w-full">
+                        Django View (DRF Validation, Authentication)
+                    </div>
+
+                    <div class="flow-line"><span class="arrow arrow-color">⬇️</span></div>
+
+                    <div class="component-box bg-white text-gray-800 border border-gray-300 w-full">
+                        Rate Manager Service (Apply Margin, Conversion)
+                    </div>
+
+                    <div class="flow-line"><span class="arrow arrow-color">↔️</span></div>
+                    <div class="component-box bg-cache text-yellow-800 font-bold">
+                        **Redis Cache** (Rate Lookup - Priority Read)
+                    </div>
+                    <div class="text-xs text-gray-500 my-1">(Fallback to PostgreSQL if Cache Miss)</div>
+
+                    <div class="flow-line"><span class="arrow arrow-color">⬇️</span></div>
+
+                    <div class="component-box bg-django text-blue-800 db-box">
+                        **PostgreSQL** (Insert `ConversionAudit` Record)
+                    </div>
+
+                    <div class="flow-line"><span class="arrow arrow-color">⬆️</span><span class="text-xs text-gray-600">Returns Converted Amount (200 OK)</span></div>
+
+                    <div class="component-box bg-django text-blue-800">
+                        Client Application
+                    </div>
+
+                    <p class="text-xs mt-3 text-center text-gray-500 italic">The API ensures low latency via Redis and logs every action for reconciliation.</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>
