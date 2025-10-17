@@ -1,0 +1,47 @@
+# ==============================
+# Core Frameworks
+# ==============================
+Django
+djangorestframework
+djangorestframework-simplejwt
+
+# ==============================
+# Database
+# ==============================
+psycopg2-binary
+dj-database-url
+
+# ==============================
+# Environment & Configuration
+# ==============================
+python-decouple
+
+# ==============================
+# Caching & Message Broker (Redis)
+# ==============================
+redis
+django-redis
+
+# ==============================
+# Asynchronous Task Queue
+# ==============================
+celery
+django-celery-beat
+
+# ==============================
+# Cross-Origin & HTTP Utilities
+# ==============================
+django-cors-headers
+requests
+
+# ==============================
+# Code Quality & Development Tools
+# ==============================
+black
+isort
+flake8
+
+# ==============================
+# Optional: For Production Deployment
+# ==============================
+gunicorn

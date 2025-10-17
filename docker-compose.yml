@@ -1,0 +1,19 @@
+services:
+  ces-postgres:
+    image: postgres:latest
+    container_name: ces-postgres
+    environment:
+      POSTGRES_USER: cesuser
+      POSTGRES_PASSWORD: cespass
+      POSTGRES_DB: cesdb
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  ces-redis:
+    image: redis:latest
+    container_name: ces-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    restart: unless-stopped
