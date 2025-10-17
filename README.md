@@ -139,13 +139,17 @@ This section documents the evolution and troubleshooting of the CES project as o
 - **Successful Test:** USD to NGN conversion (e.g., $100 → ~154,984.42 NGN) confirmed working.
 - **Database Check:** Verified EUR→USD (1.17050000), EUR→CNY (8.33986462), EUR→NGN (1823.20872274) in Django shell.
 
-## 7. Future Improvements
-- **API Authentication:** Add API keys for public access control.
+## 7. API Authentication
+- **Obtain Token:** Send a POST request to `/api/token/` with `{"username": "your_username", "password": "your_password"}`.
+- **Use Token:** Include `Authorization: Bearer <access_token>` in the header of all API requests (e.g., `/api/rate/?base=USD&target=NGN`).
+- **Refresh Token:** Use `/api/token/refresh/` with the `refresh` token to get a new `access` token.
+
+## 8. Future Improvements
 - **Deployment:** Deploy to a public server (e.g., Heroku, AWS) using Django deployment guidelines.
 - **Documentation:** Enhance with Swagger/OpenAPI spec via `drf-yasg`.
 - **Rate Updates:** Ensure Celery tasks run hourly or as needed.
 
-## 8. Acknowledgments
+## 9. Acknowledgments
 Developed with assistance from Genius, Damilola, Grok (xAI) & Gemini on October 17, 2025. Special thanks to the community and Django ecosystem for robust tools!
 
 ---
