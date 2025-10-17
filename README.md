@@ -20,7 +20,32 @@ The Simple Currency Exchange Service (CES) is a high-performance, financially co
 | Caching/Broker    | Redis                 | Serves as both the Cache Backend (low-latency read) and Celery Broker (task queue management). |
 | API               | Django Rest Framework (DRF) | Builds clean, professional RESTful endpoints. |
 
-
++---------------------+
+|    Client (Browser) |
+|   (currency.html)   |
++---------------------+
+          ↓ HTTP/REST
++---------------------+
+|     Django (DRF)    |
+|  - /api/rate/       |
+|  - /api/convert/    |
++---------------------+
+          ↓ Cache/Query
++---------+---------+---------+
+|         |         |         |
+|  Redis  |PostgreSQL| Celery  |
+| (Cache/ | (DB)    | (Worker)|
+| Broker) |         |         |
++---------+---------+---------+
+          ↓ Task Schedule
++---------------------+
+|   Celery Beat       |
++---------------------+
+          ↓ API Call
++---------------------+
+|  External FX API    |
+|  (e.g., ExchangesRateAPI) |
++---------------------+
 <img width="891" height="604" alt="image" src="https://github.com/user-attachments/assets/48c02507-0958-406b-8ab9-05f207b9401f" />
 
 ## 3. Financial Integrity & Performance Principles
