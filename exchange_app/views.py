@@ -3,9 +3,14 @@ from django.db import transaction
 from django.conf import settings
 from django.utils import timezone
 from rest_framework import status
+from rest_framework.permissions import AllowAny  # Allow unauthenticated access for registration
+from django.contrib.auth.models import User
+from django.contrib.auth.hashers import make_password
 from rest_framework.views import APIView
+from rest_framework.throttling import UserRateThrottle
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
 from exchange_app.models import ExchangeRate, ConversionAudit
 from exchange_app.serializers import (
     RateQuerySerializer,
@@ -20,8 +25,33 @@ logger = logging.getLogger(__name__)
 # Default conversion margin (e.g., 0.5%)
 CONVERSION_MARGIN = getattr(settings, 'CONVERSION_MARGIN', Decimal('0.005'))
 
+
+class RegisterAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+        email = request.data.get('email')  # Optional, depending on your User model
+
+        if not username or not password:
+            return Response({"error": "Username and password are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if User.objects.filter(username=username).exists():
+            return Response({"error": "Username already exists."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.create(
+            username=username,
+            password=make_password(password),  # Hash the password
+            email=email or '',  # Optional field
+        )
+        return Response({"message": "User created successfully.", "user_id": user.id}, status=status.HTTP_201_CREATED)
+
 class RateQueryAPIView(APIView):
     """GET /api/v1/rates/latest/?base=USD&target=NGN"""
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
+
     def get(self, request):
         serializer = RateQuerySerializer(data=request.query_params)
         try:
@@ -72,6 +102,9 @@ class RateQueryAPIView(APIView):
 
 class ConversionAPIView(APIView):
     """POST /api/v1/conversions/"""
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
+
     def post(self, request):
         serializer = ConversionRequestSerializer(data=request.data)
         try:

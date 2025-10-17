@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'django_celery_beat',   # For database-backed task scheduling
     # Custom Apps
     'exchange_app',
+    'rest_framework_simplejwt',
 ]
 
 MIDDLEWARE = [
@@ -161,3 +162,20 @@ CORS_ALLOW_ALL_ORIGINS = True # Allow all origins for local development simplici
 #     "http://127.0.0.1:8000",
 #     "http://localhost:8000",
 # ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+    'DEFAULT_THROTTLE_CLASSES': (
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ),
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/day',  # Limit anonymous users to 100 requests/day
+        'user': '1000/day',  # Limit authenticated users to 1000 requests/day
+    },
+}
