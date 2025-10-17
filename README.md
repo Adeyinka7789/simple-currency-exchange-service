@@ -20,6 +20,8 @@ The Simple Currency Exchange Service (CES) is a high-performance, financially co
 | Caching/Broker    | Redis                 | Serves as both the Cache Backend (low-latency read) and Celery Broker (task queue management). |
 | API               | Django Rest Framework (DRF) | Builds clean, professional RESTful endpoints. |
 
+<img width="891" height="604" alt="image" src="https://github.com/user-attachments/assets/48c02507-0958-406b-8ab9-05f207b9401f" />
+
 ## 3. Financial Integrity & Performance Principles
 ### 3.1 Immutable Rate Management
 The `ExchangeRate` model is designed to be history-preserving. Instead of updating a rate, the scheduled task always inserts a new record. This historical record is linked via a Foreign Key to every conversion logged in the `ConversionAudit` table, providing a non-repudiable audit trail.
