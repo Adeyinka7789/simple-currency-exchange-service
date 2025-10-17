@@ -144,7 +144,7 @@ This section documents the evolution and troubleshooting of the CES project as o
 - **Rate Updates:** Ensure Celery tasks run hourly or as needed.
 
 ## 8. Acknowledgments
-Developed with assistance from Grok (xAI) on October 17, 2025. Special thanks to the community and Django ecosystem for robust tools!
+Developed with assistance from Genius, Damilola, Grok (xAI) & Gemini on October 17, 2025. Special thanks to the community and Django ecosystem for robust tools!
 
 ---
 
