@@ -143,6 +143,8 @@ This section documents the evolution and troubleshooting of the CES project as o
 - **Obtain Token:** Send a POST request to `/api/token/` with `{"username": "your_username", "password": "your_password"}`.
 - **Use Token:** Include `Authorization: Bearer <access_token>` in the header of all API requests (e.g., `/api/rate/?base=USD&target=NGN`).
 - **Refresh Token:** Use `/api/token/refresh/` with the `refresh` token to get a new `access` token.
+- **Registration:** Create an account via `/api/register/` with `{"username": "your_username", "password": "your_password", "email": "your_email"}`.
+- **Obtain Token:** Send a POST request to `/api/token/` with `{"username": "your_username", "password": "your_password"}`.
 
 ## 8. Future Improvements
 - **Deployment:** Deploy to a public server (e.g., Heroku, AWS) using Django deployment guidelines.
