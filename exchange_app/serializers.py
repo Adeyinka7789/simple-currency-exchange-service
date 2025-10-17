@@ -1,13 +1,11 @@
 from rest_framework import serializers
 from decimal import Decimal
 from django.conf import settings
-from exchange_app.models import ConversionAudit
-
+from exchange_app.models import ConversionAudit, ExchangeRate
 
 # ----------------------------
 # FR1.2 – Rate Query Input (FIXED: Renamed fields to 'base' and 'target')
 # ----------------------------
-
 class RateQuerySerializer(serializers.Serializer):
     """
     Validates the query parameters for a rate lookup.
@@ -22,29 +20,21 @@ class RateQuerySerializer(serializers.Serializer):
         required=True,
         help_text="Target currency code (e.g., NGN)."
     )
-
     def validate(self, data):
         """Ensure currency codes are uppercase and not identical."""
-        # FIX: Changed key access from 'from_currency'/'to_currency' to 'base'/'target'
         base = data.get('base', '').upper()
         target = data.get('target', '').upper()
-
         if not base or not target:
             raise serializers.ValidationError("Both currency codes are required.")
-
         if base == target:
             raise serializers.ValidationError("Base and target currencies cannot be the same.")
-
-        # Update validated data dictionary with uppercase values
         data['base'] = base
         data['target'] = target
         return data
 
-
 # ----------------------------
 # FR1.2 – Rate Query Output
 # ----------------------------
-
 class LatestRateSerializer(serializers.Serializer):
     """
     Response serializer for rate lookup API.
@@ -62,11 +52,9 @@ class LatestRateSerializer(serializers.Serializer):
     source = serializers.CharField(default="Redis Cache / PostgreSQL Fallback")
     fetched_at = serializers.DateTimeField()
 
-
 # ----------------------------
 # FR1.3 – Conversion Request Input (FIXED: Renamed fields to 'base' and 'target')
 # ----------------------------
-
 class ConversionRequestSerializer(serializers.Serializer):
     """
     Validates conversion request payload.
@@ -88,43 +76,56 @@ class ConversionRequestSerializer(serializers.Serializer):
         required=True,
         help_text="Target currency code (e.g., NGN)."
     )
-
     def validate(self, data):
         """Ensure currency codes are uppercase and distinct."""
-        # FIX: Changed key access from 'from_currency'/'to_currency' to 'base'/'target'
         base = data.get('base', '').upper()
         target = data.get('target', '').upper()
-
         if not base or not target:
             raise serializers.ValidationError("Both currency codes are required.")
-
         if base == target:
             raise serializers.ValidationError("Source and target currencies cannot be the same.")
-
-        # Update validated data dictionary with uppercase values
         data['base'] = base
         data['target'] = target
         return data
 
-
 # ----------------------------
 # FR1.4 – Conversion Audit Output
 # ----------------------------
+class ExchangeRateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the ExchangeRate model to nest in ConversionResponseSerializer.
+    """
+    class Meta:
+        model = ExchangeRate
+        fields = ['base_currency', 'counter_currency', 'rate_value', 'fetched_at']
 
 class ConversionResponseSerializer(serializers.ModelSerializer):
     """
     Returns a successful conversion response (based on ConversionAudit model).
     """
-    rate_id = serializers.UUIDField(source='rate_used_id', read_only=True)
+    rate_used = ExchangeRateSerializer()  # Nest the related ExchangeRate object
+    effective_rate = serializers.SerializerMethodField()  # Compute effective rate dynamically
 
     class Meta:
         model = ConversionAudit
         fields = (
             'id',
-            'rate_id',
+            'rate_used',
             'input_amount',
             'output_amount',
             'margin_applied',
             'converted_at',
+            'effective_rate',
         )
         read_only_fields = fields
+
+    def get_effective_rate(self, obj):
+        """
+        Compute the effective rate based on the rate used and margin applied.
+        Note: This is a placeholder; the actual rate is calculated in the view.
+        """
+        # Since effective_rate isn't stored, we rely on the view to provide it
+        # This method will be overridden by the view's response_data
+        rate_value = obj.rate_used.rate_value
+        margin = obj.margin_applied
+        return float(rate_value * (Decimal('1.0') - margin))

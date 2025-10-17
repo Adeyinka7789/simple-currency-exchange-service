@@ -10,11 +10,12 @@ class ExchangeRateManager(models.Manager):
     """
     Custom manager to efficiently retrieve the latest exchange rate for a pair.
     It checks Redis cache first (high performance) before falling back to the DB.
-    Supports inverse rate calculation for non-EUR base currencies.
+    Supports inverse rate calculation for non-EUR base currencies using EUR as pivot.
     """
     def get_latest_rate(self, base_currency: str, counter_currency: str):
         """
         Retrieves the latest rate from Redis or PostgreSQL, handling inverse rates.
+        Since all rates are stored with EUR as base, we pivot through EUR for non-EUR bases.
         """
         cache_key = f"fx_rate:{base_currency}:{counter_currency}"
         
@@ -25,37 +26,48 @@ class ExchangeRateManager(models.Manager):
             return rate_data
         
         try:
-            # Case 1: Direct rate (e.g., EUR→USD)
-            latest_rate = self.filter(
-                base_currency=base_currency,
-                counter_currency=counter_currency,
-            ).order_by('-fetched_at').first()
+            # Case 1: Direct rate if base is EUR
+            if base_currency == 'EUR':
+                latest_rate = self.filter(
+                    base_currency=base_currency,
+                    counter_currency=counter_currency,
+                ).order_by('-fetched_at').first()
+                
+                if latest_rate:
+                    cache.set(cache_key, latest_rate.rate_value, timeout=65 * 60)
+                    return latest_rate.rate_value
             
-            if latest_rate:
-                cache.set(cache_key, latest_rate.rate_value, timeout=65 * 60)
-                return latest_rate.rate_value
-            
-            # Case 2: Inverse rate (e.g., USD→EUR = 1 / EUR→USD)
-            inverse_rate = self.filter(
-                base_currency=counter_currency,
+            # Case 2: Pivot through EUR for non-EUR base
+            base_to_eur = self.filter(
+                base_currency='EUR',
                 counter_currency=base_currency,
             ).order_by('-fetched_at').first()
             
-            if inverse_rate:
-                # Calculate inverse: 1 / rate_value
-                inverse_rate_value = (Decimal('1.0') / inverse_rate.rate_value).quantize(Decimal('0.0001'))
-                cache.set(cache_key, inverse_rate_value, timeout=65 * 60)
-                return inverse_rate_value
+            if not base_to_eur:
+                raise self.model.DoesNotExist(f"No rate found for EUR/{base_currency}")
             
-            # No rate found
-            raise self.model.DoesNotExist(f"No rate found for {base_currency}/{counter_currency}")
+            eur_to_target = self.filter(
+                base_currency='EUR',
+                counter_currency=counter_currency,
+            ).order_by('-fetched_at').first()
+            
+            if not eur_to_target:
+                raise self.model.DoesNotExist(f"No rate found for EUR/{counter_currency}")
+            
+            # Calculate base to target via EUR: (1 / EUR→base) * EUR→target
+            base_to_eur_rate = base_to_eur.rate_value
+            eur_to_target_rate = eur_to_target.rate_value
+            rate_value = (Decimal('1.0') / base_to_eur_rate * eur_to_target_rate).quantize(Decimal('0.0001'))
+            
+            cache.set(cache_key, rate_value, timeout=65 * 60)
+            return rate_value
         
-        except self.model.DoesNotExist:
+        except self.model.DoesNotExist as e:
             raise
         except Exception as e:
-            print(f"CRITICAL DB ERROR during rate lookup: {e}")
+            logger.error(f"CRITICAL DB ERROR during rate lookup: {e}")
             raise self.model.DoesNotExist("A database error occurred during rate retrieval.")
-
+        
 # --- IMMUTABLE EXCHANGE RATE MODEL (FR1.1 & FR1.2) ---
 class ExchangeRate(models.Model):
     """
